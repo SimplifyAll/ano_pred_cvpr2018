@@ -155,7 +155,3 @@ def save(saver, sess, logdir, step):
         os.makedirs(logdir)
     saver.save(sess, checkpoint_path, global_step=step)
     print('The checkpoint has been created.')
-
-
-
-

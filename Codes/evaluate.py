@@ -24,7 +24,7 @@ DATA_DIR = '../Data'
 
 
 # normalize scores in each sub video
-NORMALIZE = True
+NORMALIZE = False
 
 # number of history frames, since in prediction based method, the first 4 frames can not be predicted, so that
 # the first 4frames are undecidable, we just ignore the first 4 frames
