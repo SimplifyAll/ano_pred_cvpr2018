@@ -140,19 +140,25 @@ with tf.name_scope('training'):
         d_train_op = None
 
 # add all to summaries
-tf.summary.scalar(tensor=train_psnr_error, name='train_psnr_error')
-tf.summary.scalar(tensor=test_psnr_error, name='test_psnr_error')
-tf.summary.scalar(tensor=g_loss, name='g_loss')
-tf.summary.scalar(tensor=adv_loss, name='adv_loss')
-tf.summary.scalar(tensor=dis_loss, name='dis_loss')
-tf.summary.image(tensor=train_outputs, name='train_outputs')
-tf.summary.image(tensor=train_gt, name='train_gt')
-tf.summary.image(tensor=test_outputs, name='test_outputs')
-tf.summary.image(tensor=test_gt, name='test_gt')
-summary_op = tf.summary.merge_all()
+tf.summary.scalar(tensor=train_psnr_error, name='train_psnr_error', collections=['losses'])
+tf.summary.scalar(tensor=test_psnr_error, name='test_psnr_error', collections=['losses'])
+tf.summary.scalar(tensor=g_loss, name='g_loss', collections=['losses'])
+tf.summary.scalar(tensor=adv_loss, name='adv_loss', collections=['losses'])
+tf.summary.scalar(tensor=dis_loss, name='dis_loss', collections=['losses'])
+tf.summary.scalar(tensor=flow_loss, name='flow_loss', collections=['losses'])
+tf.summary.scalar(tensor=gdl_loss, name='gdl_loss', collections=['losses'])
+tf.summary.scalar(tensor=lp_loss, name='lp_loss', collections=['losses'])
+
+tf.summary.image(tensor=train_outputs, name='train_outputs', collections=['images'])
+tf.summary.image(tensor=train_gt, name='train_gt', collections=['images'])
+tf.summary.image(tensor=test_outputs, name='test_outputs', collections=['images'])
+tf.summary.image(tensor=test_gt, name='test_gt', collections=['images'])
+summary_op = tf.summary.merge_all(key='losses')
+summary_op_img = tf.summary.merge_all(key='images')
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.5
 with tf.Session(config=config) as sess:
     # summaries
     summary_writer = tf.summary.FileWriter(summary_dir, graph=sess.graph)
@@ -190,21 +196,25 @@ with tf.Session(config=config) as sess:
                 _dis_loss = 0
 
             print('Training generator...')
-            _, _g_lr, _step, _lp_loss, _gdl_loss, _adv_loss, _flow_loss, _g_loss, _train_psnr, _summaries = sess.run(
-                [g_train_op, g_lrate, g_step, lp_loss, gdl_loss, adv_loss, flow_loss, g_loss, train_psnr_error, summary_op])
+            _, _g_lr, _step, _lp_loss, _gdl_loss, _adv_loss, _flow_loss, _g_loss, _train_psnr, _summaries, _summaries_img = sess.run(
+                [g_train_op, g_lrate, g_step, lp_loss, gdl_loss, adv_loss, flow_loss, g_loss, train_psnr_error, summary_op, summary_op_img])
 
             if _step % 10 == 0:
                 print('DiscriminatorModel: Step {} | Global Loss: {:.6f}, lr = {:.6f}'.format(_d_step, _dis_loss, _d_lr))
                 print('GeneratorModel : Step {}, lr = {:.6f}'.format(_step, _g_lr))
                 print('                 Global      Loss : ', _g_loss)
                 print('                 intensity   Loss : ({:.4f} * {:.4f} = {:.4f})'.format(_lp_loss, lam_lp, _lp_loss * lam_lp))
-                print('                 gradient    Loss : ({:.4f} * {:.4f} = {:.4f})'.format( _gdl_loss, lam_gdl, _gdl_loss * lam_gdl))
+                print('                 gradient    Loss : ({:.4f} * {:.4f} = {:.4f})'.format(_gdl_loss, lam_gdl, _gdl_loss * lam_gdl))
                 print('                 adversarial Loss : ({:.4f} * {:.4f} = {:.4f})'.format(_adv_loss, lam_adv, _adv_loss * lam_adv))
                 print('                 flownet     Loss : ({:.4f} * {:.4f} = {:.4f})'.format(_flow_loss, lam_flow, _flow_loss * lam_flow))
                 print('                 PSNR  Error      : ', _train_psnr)
+
+            summary_writer.add_summary(_summaries, global_step=_step)
+            print('Save losses...')
+
             if _step % 100 == 0:
-                summary_writer.add_summary(_summaries, global_step=_step)
-                print('Save summaries...')
+                summary_writer.add_summary(_summaries_img, global_step=_step)
+                print('Save images...')
 
             if _step % 1000 == 0:
                 save(saver, sess, snapshot_dir, _step)
