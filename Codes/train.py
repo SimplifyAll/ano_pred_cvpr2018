@@ -5,6 +5,7 @@ from models import generator, discriminator, flownet, initialize_flownet
 from loss_functions import intensity_loss, gradient_loss
 from utils import DataLoader, load, save, psnr_error
 from constant import const
+from flownet2.src.flowlib import batch_flow_to_image
 
 
 os.environ['CUDA_DEVICES_ORDER'] = "PCI_BUS_ID"
@@ -94,6 +95,8 @@ if lam_flow != 0:
                             height=flow_height, width=flow_width, reuse=None)
     train_pred_flow = flownet(input_a=train_inputs[..., -3:], input_b=train_outputs,
                               height=flow_height, width=flow_width, reuse=True)
+    gt_flow_img = tf.py_function(batch_flow_to_image, [train_gt_flow], tf.uint8)
+    pred_flow_img = tf.py_function(batch_flow_to_image, [train_pred_flow], tf.uint8)
     flow_loss = tf.reduce_mean(tf.abs(train_gt_flow - train_pred_flow))
 else:
     flow_loss = tf.constant(0.0, dtype=tf.float32)
@@ -153,12 +156,14 @@ tf.summary.image(tensor=train_outputs, name='train_outputs', collections=['image
 tf.summary.image(tensor=train_gt, name='train_gt', collections=['images'])
 tf.summary.image(tensor=test_outputs, name='test_outputs', collections=['images'])
 tf.summary.image(tensor=test_gt, name='test_gt', collections=['images'])
+tf.summary.image(tensor=gt_flow_img, name='gt_flow', collections=['images'])
+tf.summary.image(tensor=pred_flow_img, name='pred_flow', collections=['images'])
 summary_op = tf.summary.merge_all(key='losses')
 summary_op_img = tf.summary.merge_all(key='images')
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.per_process_gpu_memory_fraction = 0.5
+config.gpu_options.per_process_gpu_memory_fraction = 1
 with tf.Session(config=config) as sess:
     # summaries
     summary_writer = tf.summary.FileWriter(summary_dir, graph=sess.graph)

@@ -552,3 +552,10 @@ def make_color_wheel():
     colorwheel[col:col+MR, 0] = 255
 
     return colorwheel
+
+
+def batch_flow_to_image(batch):
+    result = np.empty((*batch.shape[:-1], 3))
+    for i, flow in enumerate(batch):
+        result[i, ...] = flow_to_image(flow.numpy())
+    return tf.convert_to_tensor(result.astype('uint8'))
